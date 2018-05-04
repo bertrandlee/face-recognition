@@ -18,6 +18,7 @@ import cv2
 import dlib
 import numpy as np
 
+
 TEMPLATE = np.float32([
     (0.0792396913815, 0.339223741112), (0.0829219487236, 0.456955367943),
     (0.0967927109165, 0.575648016728), (0.122141515615, 0.691921601066),
@@ -186,3 +187,26 @@ class AlignDlib:
         thumbnail = cv2.warpAffine(rgbImg, H, (imgDim, imgDim))
 
         return thumbnail
+    
+    def align_multiple(self, imgDim, rgbImg, bb=None,
+              landmarks=None, landmarkIndices=INNER_EYES_AND_BOTTOM_LIP):
+        assert imgDim is not None
+        assert rgbImg is not None
+        assert landmarkIndices is not None
+
+        faces = self.getAllFaceBoundingBoxes(rgbImg)
+
+        thumbnails = []
+        
+        for face in faces:        
+            landmarks = self.findLandmarks(rgbImg, face)
+
+            npLandmarks = np.float32(landmarks)
+            npLandmarkIndices = np.array(landmarkIndices)
+
+            H = cv2.getAffineTransform(npLandmarks[npLandmarkIndices],
+                                       imgDim * MINMAX_TEMPLATE[npLandmarkIndices])
+            thumbnail = cv2.warpAffine(rgbImg, H, (imgDim, imgDim))
+            thumbnails.append(thumbnail)
+
+        return thumbnails
