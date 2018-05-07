@@ -182,7 +182,7 @@ embedded2 = copy.deepcopy(embedded)
 
 
 for i, m in enumerate(custom_metadata):
-    #print("loading image from {}".format(m.image_path()))
+    print("loading image from {}".format(m.image_path()))
     img = load_image(m.image_path())
     vector = get_face_vector(img)
     vector = vector.reshape(1,128)
