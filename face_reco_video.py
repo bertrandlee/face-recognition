@@ -10,21 +10,28 @@ import pylab
 
 CREATE_ANIMATED_GIF = True
 CREATE_MP4_VIDEO  = False
+DISPLAY_SAMPLE_FRAMES = False
+TRAIN_WITH_ALL_SAMPLES = True
+
+if TRAIN_WITH_ALL_SAMPLES == True:
+    encoder,knn,svc,test_idx,targets = train_images(metadata2, embedded2, train_with_all_samples=True)
+
 
 # Read source video file
 filename = 'videos/trump.mp4'
 
 vid = imageio.get_reader(filename,'ffmpeg')
 
-nums = [100,150]
-
-# Display sample images from video
-for num in nums:
-    image = vid.get_data(num)
-    fig = pylab.figure()
-    fig.suptitle('image #{}'.format(num), fontsize=20)
-    pylab.imshow(image)
-pylab.show()
+if DISPLAY_SAMPLE_FRAMES == True:
+    nums = [100,150]
+    
+    # Display sample images from video
+    for num in nums:
+        image = vid.get_data(num)
+        fig = pylab.figure()
+        fig.suptitle('image #{}'.format(num), fontsize=20)
+        pylab.imshow(image)
+    pylab.show()
 
 # Tag video frames with face labels 
 def label_image(svc, knn, example_image):
@@ -65,7 +72,7 @@ if CREATE_ANIMATED_GIF == True:
         labeled_images.append(labeled_image)
     
     # Create animated GIF
-    playback_frame_duration_secs=2
+    playback_frame_duration_secs=1
     
     print("Creating animated GIF...")
     
