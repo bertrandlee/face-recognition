@@ -143,7 +143,7 @@ class AlignDlib:
         points = self.predictor(rgbImg, bb)
         return list(map(lambda p: (p.x, p.y), points.parts()))
 
-    def align(self, imgDim, rgbImg, bb=None,
+    def getLargestFaceThumbnail(self, imgDim, rgbImg, bb=None,
               landmarks=None, landmarkIndices=INNER_EYES_AND_BOTTOM_LIP,
               skipMulti=False):
         r"""align(imgDim, rgbImg, bb=None, landmarks=None, landmarkIndices=INNER_EYES_AND_BOTTOM_LIP)
@@ -188,18 +188,18 @@ class AlignDlib:
 
         return thumbnail
     
-    def align_multiple(self, imgDim, rgbImg, bb=None,
+    def getAllFaceThumbnails(self, imgDim, rgbImg,
               landmarks=None, landmarkIndices=INNER_EYES_AND_BOTTOM_LIP):
         assert imgDim is not None
         assert rgbImg is not None
         assert landmarkIndices is not None
 
-        faces = self.getAllFaceBoundingBoxes(rgbImg)
+        face_bbs = self.getAllFaceBoundingBoxes(rgbImg)
 
         thumbnails = []
         
-        for face in faces:        
-            landmarks = self.findLandmarks(rgbImg, face)
+        for face_bb in face_bbs:        
+            landmarks = self.findLandmarks(rgbImg, face_bb)
 
             npLandmarks = np.float32(landmarks)
             npLandmarkIndices = np.array(landmarkIndices)
@@ -210,3 +210,9 @@ class AlignDlib:
             thumbnails.append(thumbnail)
 
         return thumbnails
+    
+    def getAllFaceBoundingBoxesAndThumbnails(self, rgbImg):
+        face_bbs = self.getAllFaceBoundingBoxes(rgbImg)
+        thumbnails = self.getAllFaceThumbnails(96, rgbImg, 
+                       landmarkIndices=AlignDlib.OUTER_EYES_AND_NOSE)
+        return face_bbs, thumbnails

@@ -156,3 +156,21 @@ def load_weights():
       weights_dict[name] = [dense_w, dense_b]
 
   return weights_dict
+
+
+import cv2
+
+def load_image(path):
+    #print("loading image from {}".format(path))
+    img = cv2.imread(path, 1)
+
+    # Rescale image if too large
+    img_threshold = 640 # pixels for width or height
+    height, width, channels = img.shape
+    if height > img_threshold or width > img_threshold:
+        scale_factor = img_threshold / height
+        img = cv2.resize(img, (0,0), fx=scale_factor, fy=scale_factor) 
+    
+    # OpenCV loads images with color channels
+    # in BGR order. So we need to reverse them
+    return img[...,::-1]
