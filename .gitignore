@@ -1,7 +1,7 @@
 .idea
 *.iml
 *-checkpoint.ipynb
-.DS_Store
+*.DS_Store
 custom/Bertrand_Lee
 custom/Riley_Kwok
 .ipynb_checkpoints
