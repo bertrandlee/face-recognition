@@ -174,3 +174,11 @@ def load_image(path):
     # OpenCV loads images with color channels
     # in BGR order. So we need to reverse them
     return img[...,::-1]
+
+def display_cv2_image(img, is_rgb=False):
+    if is_rgb:
+        img = img = img[:,:,::-1] 
+    cv2.imshow("image", img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    cv2.waitKey(1)

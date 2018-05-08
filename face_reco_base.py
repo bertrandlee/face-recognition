@@ -208,12 +208,7 @@ example_idx = int(list(targets).index("Brad_Pitt")/2)
 display_image_prediction(knn, metadata2, embedded2, test_idx, example_idx)
 
 # Recognize and label unknown images
-
-def display_cv2_image(img):
-    cv2.imshow("image", img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-    cv2.waitKey(1)
+from utils import display_cv2_image
     
 def label_cv2_image_faces(rgb_img, face_bbs, identities):    
     # Convert RGB back to cv2 RBG format
