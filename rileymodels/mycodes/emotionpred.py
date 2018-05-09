@@ -3,10 +3,12 @@ import matplotlib.pyplot as plt
 import cv2
 import numpy as np
 # %matplotlib inline
+import os
 
-model = load_model('trained_models/fer2013_mini_XCEPTION.119-0.65.hdf5')
+def load_model_dir(model_dir):
+    return load_model(os.path.join(model_dir, 'fer2013_mini_XCEPTION.119-0.65.hdf5'))
 
-def emotionof(img):                       # img as array
+def emotionof(model, img):                       # img as array
     # img = cv2.imread(img)                 # image to array
     img = cv2.resize(img,(48,48))         # resize to 48,48
     img = img.mean(axis=2,keepdims=True)  # rgb to grayscale

@@ -4,10 +4,12 @@ import matplotlib.pyplot as plt
 import cv2
 import numpy as np
 # %matplotlib inline
+import os
 
-model = load_model('trained_models/gender_models/gender_mini_XCEPTION.21-0.95.hdf5')
+def load_model_dir(model_dir):
+    return load_model(os.path.join(model_dir, 'gender_models/gender_mini_XCEPTION.21-0.95.hdf5'))
 
-def genderof(img):                       # img as array
+def genderof(model, img):                       # img as array
     # img = cv2.imread(img)                 # image to array
     img = cv2.resize(img,(64,64))         # resize to 64,64
     img = img.mean(axis=2,keepdims=True)  # rgb to grayscale
