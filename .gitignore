@@ -12,5 +12,7 @@ newvideoname.mp4
 temp.bmp
 temp.jpg
 __pycache__
+pretrained_models/weights.18-4.06.hdf5
+
 
 

@@ -119,7 +119,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import LinearSVC
 from sklearn.metrics import accuracy_score
 
-def train_images(metadata, embedded):
+def train_images(metadata, embedded, train_with_all_samples = False):
     targets = np.array([m.name for m in metadata])
 
     encoder = LabelEncoder()
@@ -128,7 +128,11 @@ def train_images(metadata, embedded):
     # Numerical encoding of identities
     y = encoder.transform(targets)
 
-    train_idx = np.arange(metadata.shape[0]) % 2 != 0
+    if train_with_all_samples == False:
+        train_idx = np.arange(metadata.shape[0]) % 2 != 0
+    else:
+        train_idx = np.full(metadata.shape[0], True)
+        
     test_idx = np.arange(metadata.shape[0]) % 2 == 0
 
     # 50 train examples of 10 identities (5 examples each)
@@ -148,7 +152,11 @@ def train_images(metadata, embedded):
     acc_knn = accuracy_score(y_test, knn.predict(X_test))
     acc_svc = accuracy_score(y_test, svc.predict(X_test))
 
-    print(f'KNN accuracy = {acc_knn}, SVM accuracy = {acc_svc}')
+    if train_with_all_samples == False:
+        print(f'KNN accuracy = {acc_knn}, SVM accuracy = {acc_svc}')
+    else:
+        print('Trained classification models with all image samples')
+        
     return encoder, knn, svc, test_idx, targets
 
 encoder,knn,svc,test_idx,targets = train_images(metadata, embedded)
@@ -180,14 +188,16 @@ custom_metadata = load_metadata("custom")
 metadata2 = np.append(metadata,custom_metadata)
 embedded2 = copy.deepcopy(embedded)
 
-
-for i, m in enumerate(custom_metadata):
-    #print("loading image from {}".format(m.image_path()))
-    img = load_image(m.image_path())
-    vector = get_face_vector(img)
-    vector = vector.reshape(1,128)
-    embedded2 = np.append(embedded2, vector,axis=0)
-
+def add_image_vectors(metadata, embedded):
+    for i, m in enumerate(metadata):
+        print("loading image from {}".format(m.image_path()))
+        img = load_image(m.image_path())
+        vector = get_face_vector(img)
+        vector = vector.reshape(1,128)
+        embedded = np.append(embedded, vector,axis=0)
+    return embedded
+    
+embedded2 = add_image_vectors(custom_metadata, embedded2)
 encoder,knn,svc,test_idx,targets = train_images(metadata2,embedded2)
 
 import warnings
@@ -198,12 +208,7 @@ example_idx = int(list(targets).index("Brad_Pitt")/2)
 display_image_prediction(knn, metadata2, embedded2, test_idx, example_idx)
 
 # Recognize and label unknown images
-
-def display_cv2_image(img):
-    cv2.imshow("image", img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-    cv2.waitKey(1)
+from utils import display_cv2_image
     
 def label_cv2_image_faces(rgb_img, face_bbs, identities):    
     # Convert RGB back to cv2 RBG format
