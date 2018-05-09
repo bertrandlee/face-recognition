@@ -15,6 +15,8 @@ import dlib
 import copy
 from utils import display_cv2_image
 
+import rileymodels.mycodes.emotionpred as emotion
+import rileymodels.mycodes.genderpred as gender
 
 
 
@@ -41,15 +43,32 @@ class FaceCV(object):
         self.model.load_weights(fpath)
 
     @classmethod
-    def draw_label(cls, image, point, label, font=cv2.FONT_HERSHEY_SIMPLEX,
+    def draw_label_top(cls, image, point, label, font=cv2.FONT_HERSHEY_SIMPLEX,
                    font_scale=1, thickness=2):
         size = cv2.getTextSize(label, font, font_scale, thickness)[0]
         x, y = point
         cv2.rectangle(image, (x, y - size[1]), (x + size[0], y), (255, 0, 0), cv2.FILLED)
         cv2.putText(image, label, point, font, font_scale, (255, 255, 255), thickness)
 
+    @classmethod
+    def draw_label_bottom(cls, image, point, label, font=cv2.FONT_HERSHEY_SIMPLEX,
+                   font_scale=1, thickness=2):
+        size = cv2.getTextSize(label, font, font_scale, thickness)[0]
+        x, y = point
+        cv2.rectangle(image, (x, y), (x + size[0], y + size[1]), (255, 0, 0), cv2.FILLED)
+        point = x, y+size[1]
+        cv2.putText(image, label, point, font, font_scale, (255, 255, 255), thickness)
 
-    def detect_face(self, img):
+    def get_expanded_face(self, img, bb):
+        img_h, img_w, _ = np.shape(img)
+        x1, y1, x2, y2, w, h = bb.left(), bb.top(), bb.right() + 1, bb.bottom() + 1, bb.width(), bb.height()
+        xw1 = max(int(x1 - 0.4 * w), 0)
+        yw1 = max(int(y1 - 0.4 * h), 0)
+        xw2 = min(int(x2 + 0.4 * w), img_w - 1)
+        yw2 = min(int(y2 + 0.4 * h), img_h - 1)
+        return cv2.resize(img[yw1:yw2 + 1, xw1:xw2 + 1, :], (self.face_size, self.face_size))
+
+    def detect_face(self, img, emotion_model, gender_model):
         # for face detection
         detector = dlib.get_frontal_face_detector()
             
@@ -57,20 +76,14 @@ class FaceCV(object):
         img_h, img_w, _ = np.shape(input_img)
 
         # detect faces using dlib detector
-        detected = detector(input_img, 1)
-        face_imgs = np.empty((len(detected), self.face_size, self.face_size, 3))
+        face_bbs = detector(input_img, 1)
+        face_imgs = np.empty((len(face_bbs), self.face_size, self.face_size, 3))
 
-        if len(detected) > 0:
-            for i, d in enumerate(detected):
-                x1, y1, x2, y2, w, h = d.left(), d.top(), d.right() + 1, d.bottom() + 1, d.width(), d.height()
-                xw1 = max(int(x1 - 0.4 * w), 0)
-                yw1 = max(int(y1 - 0.4 * h), 0)
-                xw2 = min(int(x2 + 0.4 * w), img_w - 1)
-                yw2 = min(int(y2 + 0.4 * h), img_h - 1)
+        if len(face_bbs) > 0:
+            for i, bb in enumerate(face_bbs):
+                x1, y1, x2, y2, w, h = bb.left(), bb.top(), bb.right() + 1, bb.bottom() + 1, bb.width(), bb.height()
                 cv2.rectangle(img, (x1, y1), (x2, y2), (255, 0, 0), 2)
-                # cv2.rectangle(img, (xw1, yw1), (xw2, yw2), (255, 0, 0), 2)
-                face_imgs[i, :, :, :] = cv2.resize(img[yw1:yw2 + 1, xw1:xw2 + 1, :], (self.face_size, self.face_size))
-            
+                face_imgs[i, :, :, :] = self.get_expanded_face(img, bb)
             
         if len(face_imgs) > 0:
             # predict ages and genders of the detected faces
@@ -80,12 +93,23 @@ class FaceCV(object):
             predicted_ages = results[1].dot(ages).flatten()
             
         # draw results
-        for i, d in enumerate(detected):
+        for i, bb in enumerate(face_bbs):
+            # Display age and gender at top of face
             label = "{}, {}".format(int(predicted_ages[i]),
                                     "F" if predicted_genders[i][0] > 0.5 else "M")
-            self.draw_label(img, (d.left(), d.top()), label)
+            self.draw_label_top(img, (bb.left(), bb.top()), label)
+            
+            # Display emotion and gender at bottom of face
+            emotion_result = emotion.emotionof(emotion_model, face_imgs[i])[0]
+            gender_result = gender.genderof(gender_model, face_imgs[i])[0]
+            label = "{}, {}".format(emotion_result, gender_result)
+            self.draw_label_bottom(img, (bb.left(), bb.bottom()), label)
         return img
 
+
+# Load riley models
+emotion_model = emotion.load_model_dir("rileymodels/trained_models")
+gender_model = gender.load_model_dir("rileymodels/trained_models")
 
 # Load sample image
 img = load_image("unknown/unknown5.jpg")
@@ -94,7 +118,7 @@ img = load_image("unknown/unknown5.jpg")
 
 face = FaceCV()
 img2 = copy.deepcopy(img)
-image = face.detect_face(img2)
+image = face.detect_face(img2, emotion_model, gender_model)
 
 
 DISPLAY_CV_IMAGE=False
