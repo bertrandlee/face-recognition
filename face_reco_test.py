@@ -25,6 +25,7 @@ gender_model = gender.load_model_dir("rileymodels/trained_models")
 # Flag to recognize faces 
 # This requires face_reco_base.py to be run in console first
 RECOGNIZE_FACES = True
+OVERLAY_ALPHA = 0.5
 
 class FaceCV(object):
     """
@@ -50,22 +51,26 @@ class FaceCV(object):
 
     @classmethod
     def draw_label_top(cls, image, point, label, font=cv2.FONT_HERSHEY_SIMPLEX,
-                   font_scale=1, thickness=2):
+                   font_scale=1, thickness=2, alpha=OVERLAY_ALPHA):
         size = cv2.getTextSize(label, font, font_scale, thickness)[0]
         x, y = point
-        cv2.rectangle(image, (x, y - size[1]), (x + size[0], y), (255, 0, 0), cv2.FILLED)
-        cv2.putText(image, label, point, font, font_scale, (255, 255, 255), thickness)
+        overlay = image.copy()
+        cv2.rectangle(overlay, (x, y - size[1]), (x + size[0], y), (255, 0, 0), cv2.FILLED)
+        cv2.putText(overlay, label, point, font, font_scale, (255, 255, 255), thickness)
+        cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0, image)
 
     @classmethod
     def draw_label_bottom(cls, image, point, label, font=cv2.FONT_HERSHEY_SIMPLEX,
-                   font_scale=1, thickness=2, row_index=0):
+                   font_scale=1, thickness=2, row_index=0, alpha=OVERLAY_ALPHA):
         size = cv2.getTextSize(label, font, font_scale, thickness)[0]
         point = (point[0], point[1] + (row_index * size[1]))
         x, y = point
-        cv2.rectangle(image, (x, y), (x + size[0], y + size[1]), (255, 0, 0), cv2.FILLED)
+        overlay = image.copy()
+        cv2.rectangle(overlay, (x, y), (x + size[0], y + size[1]), (255, 0, 0), cv2.FILLED)
         point = x, y+size[1]
-        cv2.putText(image, label, point, font, font_scale, (255, 255, 255), thickness)
-
+        cv2.putText(overlay, label, point, font, font_scale, (255, 255, 255), thickness)
+        cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0, image)
+        
     def get_regular_face(self, img, bb):
         return img[bb.top():bb.bottom()+1, bb.left():bb.right()+1, :]
 
