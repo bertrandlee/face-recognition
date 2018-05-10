@@ -16,20 +16,26 @@ import copy
 from utils import display_cv2_image
 
 import rileymodels.mycodes.emotionpred as emotion
-import rileymodels.mycodes.genderpred as gender
 
 # Load riley models
+print("Loading emotion model...")
 emotion_model = emotion.load_model_dir("rileymodels/trained_models")
-gender_model = gender.load_model_dir("rileymodels/trained_models")
+print("Loaded emotion model")
 
 # Flag to recognize faces 
 # This requires face_reco_base.py to be run in console first
 RECOGNIZE_FACES = True
+
+# Transparency level for text overlay
 OVERLAY_ALPHA = 0.5
+
+# Display image via OpenCV or matplotlib
+DISPLAY_CV_IMAGE=False
+
 
 class FaceCV(object):
     """
-    Singleton class for face recongnition task
+    Singleton class for face recognition task
     """
     CASE_PATH = "./pretrained_models/haarcascade_frontalface_alt.xml"
     WRN_WEIGHTS_PATH = "https://github.com/Tony607/Keras_age_gender/releases/download/V1.0/weights.18-4.06.hdf5"
@@ -42,12 +48,14 @@ class FaceCV(object):
 
     def __init__(self, depth=16, width=8, face_size=64):
         self.face_size = face_size
+        print("Loading WideResNet model...")
         self.model = WideResNet(face_size, depth=depth, k=width)()
         model_dir = os.path.join(os.getcwd(), "pretrained_models").replace("//", "\\")
         fpath = get_file('weights.18-4.06.hdf5',
                          self.WRN_WEIGHTS_PATH,
                          cache_subdir=model_dir)
         self.model.load_weights(fpath)
+        print("Loaded WideResNet model")
 
     @classmethod
     def draw_label_top(cls, image, point, label, font=cv2.FONT_HERSHEY_SIMPLEX,
@@ -83,7 +91,7 @@ class FaceCV(object):
         yw2 = min(int(y2 + 0.4 * h), img_h - 1)
         return cv2.resize(img[yw1:yw2 + 1, xw1:xw2 + 1, :], (self.face_size, self.face_size))
 
-    def detect_face(self, img, emotion_model, gender_model):
+    def detect_face(self, img, emotion_model):
         # for face detection
         detector = dlib.get_frontal_face_detector()
             
@@ -98,7 +106,6 @@ class FaceCV(object):
             face_bbs = detector(input_img, 1)
         expanded_face_imgs = np.empty((len(face_bbs), self.face_size, self.face_size, 3))
         emotion2_results = []
-        gender2_results = []
   
         # Get face images      
         for i, bb in enumerate(face_bbs):
@@ -107,7 +114,6 @@ class FaceCV(object):
             reg_face = self.get_regular_face(img, bb)
             reg_face = copy.deepcopy(reg_face)
             emotion2_results.append(emotion.emotionof(emotion_model, reg_face)[0])
-            gender2_results.append(gender.genderof(gender_model, reg_face)[0])
 
         
         if len(expanded_face_imgs) > 0:
@@ -139,10 +145,6 @@ class FaceCV(object):
                                              "F" if predicted_genders[i][0] > 0.5 else "M",
                                              emotion2_results[i])
                 self.draw_label_bottom(img, (bb.left(), bb.bottom()), label2, row_index=0)
-                
-            
-
-                
 
         # draw face rectangles
         for i, bb in enumerate(face_bbs):
@@ -152,22 +154,21 @@ class FaceCV(object):
         return img
 
 
-DISPLAY_CV_IMAGE=False
-
 def display_labeled_image(face, file_path):
     img = load_image(file_path)
     img2 = copy.deepcopy(img)
-    image = face.detect_face(img2, emotion_model, gender_model)
+    image = face.detect_face(img2, emotion_model)
     if DISPLAY_CV_IMAGE == True:
         display_cv2_image(image, is_rgb=True)
     else:
         plt.figure()
         plt.imshow(image)
 
-def display_labeled_images(face, path):
-    files = os.listdir(path)
-    for file in files:
-        file_path = os.path.join(path, file)
+def display_labeled_images(face, dir_path):
+    files = os.listdir(dir_path)
+    for i, file in enumerate(files):
+        print("Displaying image {}".format(i+1))
+        file_path = os.path.join(dir_path, file)
         display_labeled_image(face, file_path)
 
 face = FaceCV()
