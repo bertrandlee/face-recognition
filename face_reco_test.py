@@ -152,21 +152,23 @@ class FaceCV(object):
         return img
 
 
-# Load sample image
-img = load_image("unknown/unknown5.jpg")
-# Convert cv2 RBG back to RGB format
-#img = img[:,:,::-1]        
-
-face = FaceCV()
-img2 = copy.deepcopy(img)
-image = face.detect_face(img2, emotion_model, gender_model)
-
-
 DISPLAY_CV_IMAGE=False
 
-if DISPLAY_CV_IMAGE == True:
-    display_cv2_image(image, is_rgb=True)
-else:
-    plt.figure()
-    plt.imshow(image)
+def display_labeled_image(face, file_path):
+    img = load_image(file_path)
+    img2 = copy.deepcopy(img)
+    image = face.detect_face(img2, emotion_model, gender_model)
+    if DISPLAY_CV_IMAGE == True:
+        display_cv2_image(image, is_rgb=True)
+    else:
+        plt.figure()
+        plt.imshow(image)
 
+def display_labeled_images(face, path):
+    files = os.listdir(path)
+    for file in files:
+        file_path = os.path.join(path, file)
+        display_labeled_image(face, file_path)
+
+face = FaceCV()
+display_labeled_images(face, "unknown")
