@@ -18,6 +18,9 @@ from utils import display_cv2_image
 import rileymodels.mycodes.emotionpred as emotion
 import rileymodels.mycodes.genderpred as gender
 
+# Load riley models
+emotion_model = emotion.load_model_dir("rileymodels/trained_models")
+gender_model = gender.load_model_dir("rileymodels/trained_models")
 
 
 class FaceCV(object):
@@ -59,6 +62,9 @@ class FaceCV(object):
         point = x, y+size[1]
         cv2.putText(image, label, point, font, font_scale, (255, 255, 255), thickness)
 
+    def get_regular_face(self, img, bb):
+        return img[bb.top():bb.bottom()+1, bb.left():bb.right()+1, :]
+
     def get_expanded_face(self, img, bb):
         img_h, img_w, _ = np.shape(img)
         x1, y1, x2, y2, w, h = bb.left(), bb.top(), bb.right() + 1, bb.bottom() + 1, bb.width(), bb.height()
@@ -77,17 +83,23 @@ class FaceCV(object):
 
         # detect faces using dlib detector
         face_bbs = detector(input_img, 1)
-        face_imgs = np.empty((len(face_bbs), self.face_size, self.face_size, 3))
+        expanded_face_imgs = np.empty((len(face_bbs), self.face_size, self.face_size, 3))
+        emotion2_results = []
+        gender2_results = []
+  
+        # Get face images      
+        for i, bb in enumerate(face_bbs):
+            x1, y1, x2, y2, w, h = bb.left(), bb.top(), bb.right() + 1, bb.bottom() + 1, bb.width(), bb.height()
+            expanded_face_imgs[i, :, :, :] = self.get_expanded_face(img, bb)
+            reg_face = self.get_regular_face(img, bb)
+            reg_face = copy.deepcopy(reg_face)
+            emotion2_results.append(emotion.emotionof(emotion_model, reg_face)[0])
+            gender2_results.append(gender.genderof(gender_model, reg_face)[0])
 
-        if len(face_bbs) > 0:
-            for i, bb in enumerate(face_bbs):
-                x1, y1, x2, y2, w, h = bb.left(), bb.top(), bb.right() + 1, bb.bottom() + 1, bb.width(), bb.height()
-                cv2.rectangle(img, (x1, y1), (x2, y2), (255, 0, 0), 2)
-                face_imgs[i, :, :, :] = self.get_expanded_face(img, bb)
-            
-        if len(face_imgs) > 0:
+        
+        if len(expanded_face_imgs) > 0:
             # predict ages and genders of the detected faces
-            results = self.model.predict(face_imgs)
+            results = self.model.predict(expanded_face_imgs)
             predicted_genders = results[0]
             ages = np.arange(0, 101).reshape(101, 1)
             predicted_ages = results[1].dot(ages).flatten()
@@ -95,21 +107,22 @@ class FaceCV(object):
         # draw results
         for i, bb in enumerate(face_bbs):
             # Display age and gender at top of face
-            label = "{}, {}".format(int(predicted_ages[i]),
+            label1 = "{}, {}".format(int(predicted_ages[i]),
                                     "F" if predicted_genders[i][0] > 0.5 else "M")
-            self.draw_label_top(img, (bb.left(), bb.top()), label)
+            self.draw_label_top(img, (bb.left(), bb.top()), label1)
             
             # Display emotion and gender at bottom of face
-            emotion_result = emotion.emotionof(emotion_model, face_imgs[i])[0]
-            gender_result = gender.genderof(gender_model, face_imgs[i])[0]
-            label = "{}, {}".format(emotion_result, gender_result)
-            self.draw_label_bottom(img, (bb.left(), bb.bottom()), label)
+            #label2 = "{}, {}".format(emotion2_results[i], gender2_results[i])
+            label2 = "{}".format(emotion2_results[i])
+            self.draw_label_bottom(img, (bb.left(), bb.bottom()), label2)
+
+        # draw face rectangles
+        for i, bb in enumerate(face_bbs):
+            x1, y1, x2, y2, w, h = bb.left(), bb.top(), bb.right() + 1, bb.bottom() + 1, bb.width(), bb.height()             
+            cv2.rectangle(img, (x1, y1), (x2, y2), (255, 0, 0), 2)
+
         return img
 
-
-# Load riley models
-emotion_model = emotion.load_model_dir("rileymodels/trained_models")
-gender_model = gender.load_model_dir("rileymodels/trained_models")
 
 # Load sample image
 img = load_image("unknown/unknown5.jpg")
@@ -126,5 +139,7 @@ DISPLAY_CV_IMAGE=False
 if DISPLAY_CV_IMAGE == True:
     display_cv2_image(image, is_rgb=True)
 else:
-    pylab.imshow(image)
+    plt.figure()
+    plt.imshow(image)
+    print("Display pylab image")
 

@@ -9,10 +9,19 @@ import os
 def load_model_dir(model_dir):
     return load_model(os.path.join(model_dir, 'gender_models/gender_mini_XCEPTION.21-0.95.hdf5'))
 
+def preprocess_input(x, v2=True):
+    x = x.astype('float32')
+    x = x / 255.0
+    if v2:
+        x = x - 0.5
+        x = x * 2.0
+    return x
+
 def genderof(model, img):                       # img as array
     # img = cv2.imread(img)                 # image to array
     img = cv2.resize(img,(64,64))         # resize to 64,64
     img = img.mean(axis=2,keepdims=True)  # rgb to grayscale
+    img = preprocess_input(img, False)
     x   = np.expand_dims(img,0)           # expand (64,64,1) to (1,64,64,1)
     
     y_pred = model.predict(x)             # predict emotion
