@@ -22,6 +22,9 @@ import rileymodels.mycodes.genderpred as gender
 emotion_model = emotion.load_model_dir("rileymodels/trained_models")
 gender_model = gender.load_model_dir("rileymodels/trained_models")
 
+# Flag to recognize faces 
+# This requires face_reco_base.py to be run in console first
+RECOGNIZE_FACES = True
 
 class FaceCV(object):
     """
@@ -55,8 +58,9 @@ class FaceCV(object):
 
     @classmethod
     def draw_label_bottom(cls, image, point, label, font=cv2.FONT_HERSHEY_SIMPLEX,
-                   font_scale=1, thickness=2):
+                   font_scale=1, thickness=2, row_index=0):
         size = cv2.getTextSize(label, font, font_scale, thickness)[0]
+        point = (point[0], point[1] + (row_index * size[1]))
         x, y = point
         cv2.rectangle(image, (x, y), (x + size[0], y + size[1]), (255, 0, 0), cv2.FILLED)
         point = x, y+size[1]
@@ -81,8 +85,12 @@ class FaceCV(object):
         input_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         img_h, img_w, _ = np.shape(input_img)
 
+
         # detect faces using dlib detector
-        face_bbs = detector(input_img, 1)
+        if RECOGNIZE_FACES == True:
+            face_bbs, identities = identify_image_faces(svc, knn, img)
+        else:
+            face_bbs = detector(input_img, 1)
         expanded_face_imgs = np.empty((len(face_bbs), self.face_size, self.face_size, 3))
         emotion2_results = []
         gender2_results = []
@@ -106,15 +114,30 @@ class FaceCV(object):
             
         # draw results
         for i, bb in enumerate(face_bbs):
-            # Display age and gender at top of face
-            label1 = "{}, {}".format(int(predicted_ages[i]),
-                                    "F" if predicted_genders[i][0] > 0.5 else "M")
-            self.draw_label_top(img, (bb.left(), bb.top()), label1)
             
-            # Display emotion and gender at bottom of face
-            #label2 = "{}, {}".format(emotion2_results[i], gender2_results[i])
-            label2 = "{}".format(emotion2_results[i])
-            self.draw_label_bottom(img, (bb.left(), bb.bottom()), label2)
+            if RECOGNIZE_FACES == True:
+                # Display name 
+                label1 = "{}".format(identities[i])
+                self.draw_label_bottom(img, (bb.left(), bb.bottom()), label1)
+            
+                ## Display age, gender and emotion
+                if identities[i] == "Unknown":
+                    label2 = "{}, {}, {}".format(int(predicted_ages[i]),
+                                                 "F" if predicted_genders[i][0] > 0.5 else "M",
+                                                 emotion2_results[i])
+                else:
+                    label2 = "{}".format(emotion2_results[i])
+                self.draw_label_bottom(img, (bb.left(), bb.bottom()+1), label2, row_index=1)
+            else:
+                ## Display age, gender and emotion 
+                label2 = "{}, {}, {}".format(int(predicted_ages[i]),
+                                             "F" if predicted_genders[i][0] > 0.5 else "M",
+                                             emotion2_results[i])
+                self.draw_label_bottom(img, (bb.left(), bb.bottom()), label2, row_index=0)
+                
+            
+
+                
 
         # draw face rectangles
         for i, bb in enumerate(face_bbs):
@@ -141,5 +164,4 @@ if DISPLAY_CV_IMAGE == True:
 else:
     plt.figure()
     plt.imshow(image)
-    print("Display pylab image")
 
