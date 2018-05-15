@@ -18,7 +18,7 @@ if TRAIN_WITH_ALL_SAMPLES == True:
 
 
 # Read source video file
-filename = 'videos/retail_video1.mp4'
+filename = 'videos/retail_video1.mov'
 
 vid = imageio.get_reader(filename,'ffmpeg')
 
@@ -67,6 +67,7 @@ if CREATE_ANIMATED_GIF == True:
         print("Processing {} of {} video frames".format(i+1, len(video_images)))
         # TODO: Figure out how to do in-memory transform instead of using temp file
         imageio.imwrite(temp_file, video_image)
+        #imageio.imwrite("test{}.jpg".format(i+1), video_image)
         video_image2 = load_image(temp_file)
         labeled_image, metadata2, embedded2 = label_image(svc, knn, video_image2, metadata2, embedded2)
         labeled_images.append(labeled_image)
@@ -94,7 +95,7 @@ if CREATE_MP4_VIDEO == True:
         # TODO: Figure out how to do in-memory transform instead of using temp file
         imageio.imwrite(temp_file, image)
         video_image2 = load_image(temp_file)
-        labeled_image = label_image(svc, knn, video_image2)
+        labeled_image, metadata2, embedded2 = label_image(svc, knn, video_image2, metadata2, embedded2)
         
         #r = np.random.randint(-10,10,2)
         #n = cv2.rectangle(image,(600+r[0],400+r[1]),(700+r[0],300+r[1]),(0,255,0),3)

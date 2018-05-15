@@ -8,7 +8,15 @@ import os
 
 from urllib.request import urlopen
 
-RECOGNIZE_UNKNOWN_FACES = False
+from numpy.random import seed
+seed(1)
+from tensorflow import set_random_seed
+set_random_seed(2)
+
+RECOGNIZE_UNKNOWN_FACES = True
+MIN_DLIB_SCORE = 1.1
+MIN_SHARPNESS_LEVEL = 30
+
 
 # Download dlib face detection landmarks file
 def download_landmarks(dst_file):
@@ -85,8 +93,8 @@ def get_face_thumbnail(img):
     return alignment.getLargestFaceThumbnail(96, img, alignment.getLargestFaceBoundingBox(img), 
                            landmarkIndices=AlignDlib.OUTER_EYES_AND_NOSE)
 
-def get_all_face_thumbnails(img):
-    return alignment.getAllFaceThumbnails(96, img, 
+def get_all_face_thumbnails_and_scores(img):
+    return alignment.getAllFaceThumbnailsAndScores(96, img, 
                            landmarkIndices=AlignDlib.OUTER_EYES_AND_NOSE)
 
 # Get embedding vectors
@@ -101,7 +109,7 @@ def get_face_vector(img, is_thumbnail = False):
     return nn4_small2_pretrained.predict(np.expand_dims(img, axis=0))[0]
 
 def get_face_vectors(img):
-    face_thumbnails = get_all_face_thumbnails(img)
+    face_thumbnails, scores, face_types = get_all_face_thumbnails_and_scores(img)
     face_vectors = []
     for face_img in face_thumbnails:
         # scale RGB values to interval [0,1]
@@ -109,7 +117,7 @@ def get_face_vectors(img):
         # obtain embedding vector for image
         vector = nn4_small2_pretrained.predict(np.expand_dims(face_img, axis=0))[0]
         face_vectors.append(vector)
-    return face_vectors, face_thumbnails
+    return face_vectors, face_thumbnails, scores, face_types
     
 for i, m in enumerate(metadata):
     img = load_image(m.image_path())
@@ -263,18 +271,12 @@ def save_unknown_face(face_vector, face_thumbnail, metadata, embedded):
     customer_dir = "customer_{}".format(curr_index)
     dir_path = os.path.join("custom", customer_dir)
     os.mkdir(dir_path)
-    customer_file1 = "customer_{}.jpg".format(curr_index)
-    customer_file2 = "customer_{}a.jpg".format(curr_index)
-    file_path = os.path.join(dir_path, customer_file1)
-    file_path2 = os.path.join(dir_path, customer_file2)
-    imageio.imwrite(file_path, face_thumbnail)
-    imageio.imwrite(file_path2, face_thumbnail)
-    
-    metadata = np.append(metadata, IdentityMetadata("custom", customer_dir, customer_file1))
-    metadata = np.append(metadata, IdentityMetadata("custom", customer_dir, customer_file2))
-    vector = face_vector.reshape(1,128)
-    embedded = np.append(embedded, vector, axis=0)
-    embedded = np.append(embedded, vector, axis=0)
+    for i in range (0,8):
+        customer_file = "customer_{}_{}.jpg".format(curr_index, i+1)
+        file_path = os.path.join(dir_path, customer_file)
+        imageio.imwrite(file_path, face_thumbnail)
+        metadata = np.append(metadata, IdentityMetadata("custom", customer_dir, customer_file))
+        embedded = np.append(embedded, face_vector.reshape(1,128), axis=0)
 
     print("Saved unknown face")    
     return metadata, embedded
@@ -289,30 +291,41 @@ def get_distances(vector, embedded):
     return distances
 
 
+def get_sharpness_level(image):
+    grey = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    # compute the Laplacian of the image and then return the focus
+    # measure, which is simply the variance of the Laplacian
+    return cv2.Laplacian(grey, cv2.CV_64F).var()
+
+
 def identify_image_faces(example_image, svc_model, knn_model, label_encoder, metadata, embedded):
-    vectors, thumbnails = get_face_vectors(example_image)
+    vectors, thumbnails, dlib_scores, face_types = get_face_vectors(example_image)
     
     identities = []
-    found_unknown = False
+    saved_unknown = False
     for i, vector in enumerate(vectors):
         vector = vector.reshape(1,128)
         confidence_scores = svc_model.decision_function(vector)    
         if (confidence_scores.max() < 0):
-            found_unknown = True
-            example_identity = "Unknown"
+            sharpness_level = get_sharpness_level(thumbnails[i])
+            example_identity = "Unknown ({:0.2f}, {}, {:0.2f})".format(dlib_scores[i], face_types[i], sharpness_level)
+            print("Unknown face - dlib score={:0.2f}, face_type={}, sharpness_level={:0.2f}".format(dlib_scores[i], face_types[i], sharpness_level))
             if RECOGNIZE_UNKNOWN_FACES:
-                metadata, embedded = save_unknown_face(vector, thumbnails[i], metadata, embedded)
+                # Only save (and train) a good-quality and front-facing face
+                if dlib_scores[i] >= MIN_DLIB_SCORE and face_types[i] == 0 and sharpness_level >= MIN_SHARPNESS_LEVEL:
+                    saved_unknown = True
+                    print("Saving unknown face")
+                    metadata, embedded = save_unknown_face(vector, thumbnails[i], metadata, embedded)
         else:
             example_prediction = knn_model.predict(vector)
             example_identity = label_encoder.inverse_transform(example_prediction)[0]
         identities.append(example_identity)
         
-    # Add to training model if any unknown faces were found
-    if RECOGNIZE_UNKNOWN_FACES:
-        if found_unknown:
-            # TODO: Remove global var references
-            global knn, svc, encoder, test_idx, targets        
-            encoder,knn,svc,test_idx,targets = train_images(metadata,embedded)
+    # Add to training model if any unknown faces were saved
+    if saved_unknown:
+        # TODO: Remove global var references
+        global knn, svc, encoder, test_idx, targets        
+        encoder,knn,svc,test_idx,targets = train_images(metadata,embedded)
         
     # Detect faces and return bounding boxes
     face_bbs = alignment.getAllFaceBoundingBoxes(example_image)
@@ -323,8 +336,8 @@ def display_unknown_image(image_path, svc, knn, encoder, metadata, embedded):
     img = load_image(image_path)
  
     face_bbs, identities, metadata, embedded = identify_image_faces(img, svc, knn, encoder, metadata, embedded)
-    display_cv2_image_faces(img, face_bbs, identities)
-    #display_plt_image_faces(img, face_bbs, identities, subplot)
+    #display_cv2_image_faces(img, face_bbs, identities)
+    display_plt_image_faces(img, face_bbs, identities)
     return metadata, embedded
     
 

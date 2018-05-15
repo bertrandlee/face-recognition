@@ -4,15 +4,18 @@
 *.DS_Store
 custom/Bertrand_Lee
 custom/Riley_Kwok
+custom/customer_*
 .ipynb_checkpoints
 videos/retail_video1.mov
 videos/retail_video2.mov
+videos/retail_video*.*
 movie.gif
 newvideoname.mp4
 temp.bmp
 temp.jpg
 __pycache__
 pretrained_models/weights.18-4.06.hdf5
+.gitignore~
 
 
 

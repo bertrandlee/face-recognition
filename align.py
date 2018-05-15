@@ -107,6 +107,26 @@ class AlignDlib:
             # In rare cases, exceptions are thrown.
             return []
 
+    def getAllFaceBoundingBoxesAndScores(self, rgbImg):
+        """
+        Find all face bounding boxes in an image.
+
+        :param rgbImg: RGB image to process. Shape: (height, width, 3)
+        :type rgbImg: numpy.ndarray
+        :return: All face bounding boxes in an image.
+        :rtype: dlib.rectangles
+        """
+        assert rgbImg is not None
+
+        try:
+            face_bbs, scores, face_types = self.detector.run(rgbImg, 1)
+            return face_bbs, scores, face_types
+        except Exception as e:
+            print("Warning: {}".format(e))
+            # In rare cases, exceptions are thrown.
+            return []
+
+
     def getLargestFaceBoundingBox(self, rgbImg, skipMulti=False):
         """
         Find the largest face bounding box in an image.
@@ -210,6 +230,30 @@ class AlignDlib:
             thumbnails.append(thumbnail)
 
         return thumbnails
+
+    def getAllFaceThumbnailsAndScores(self, imgDim, rgbImg,
+              landmarks=None, landmarkIndices=INNER_EYES_AND_BOTTOM_LIP):
+        assert imgDim is not None
+        assert rgbImg is not None
+        assert landmarkIndices is not None
+
+        face_bbs, scores, face_types = self.getAllFaceBoundingBoxesAndScores(rgbImg)
+
+        thumbnails = []
+        
+        for face_bb in face_bbs:        
+            landmarks = self.findLandmarks(rgbImg, face_bb)
+
+            npLandmarks = np.float32(landmarks)
+            npLandmarkIndices = np.array(landmarkIndices)
+
+            H = cv2.getAffineTransform(npLandmarks[npLandmarkIndices],
+                                       imgDim * MINMAX_TEMPLATE[npLandmarkIndices])
+            thumbnail = cv2.warpAffine(rgbImg, H, (imgDim, imgDim))
+            thumbnails.append(thumbnail)
+
+        return thumbnails, scores, face_types
+
     
     def getAllFaceBoundingBoxesAndThumbnails(self, rgbImg):
         face_bbs = self.getAllFaceBoundingBoxes(rgbImg)
