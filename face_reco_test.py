@@ -101,7 +101,8 @@ class FaceCV(object):
 
         # detect faces using dlib detector
         if RECOGNIZE_FACES == True:
-            face_bbs, identities = identify_image_faces(svc, knn, img)
+            global metadata2, embedded2
+            face_bbs, identities, metadata2, embedded2 = identify_image_faces(img, svc, knn, encoder, metadata2, embedded2)
         else:
             face_bbs = detector(input_img, 1)
         expanded_face_imgs = np.empty((len(face_bbs), self.face_size, self.face_size, 3))
