@@ -8,6 +8,8 @@ import os
 
 from urllib.request import urlopen
 
+RECOGNIZE_UNKNOWN_FACES = False
+
 # Download dlib face detection landmarks file
 def download_landmarks(dst_file):
     url = 'http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2'
@@ -90,23 +92,24 @@ def get_all_face_thumbnails(img):
 # Get embedding vectors
 embedded = np.zeros((metadata.shape[0], 128))
 
-def get_face_vector(img):
-    img = get_face_thumbnail(img)
+def get_face_vector(img, is_thumbnail = False):
+    if not is_thumbnail:    
+        img = get_face_thumbnail(img)
     # scale RGB values to interval [0,1]
     img = (img / 255.).astype(np.float32)
     # obtain embedding vector for image
     return nn4_small2_pretrained.predict(np.expand_dims(img, axis=0))[0]
 
 def get_face_vectors(img):
-    faces = get_all_face_thumbnails(img)
+    face_thumbnails = get_all_face_thumbnails(img)
     face_vectors = []
-    for face_img in faces:
+    for face_img in face_thumbnails:
         # scale RGB values to interval [0,1]
         face_img = (face_img / 255.).astype(np.float32)
         # obtain embedding vector for image
         vector = nn4_small2_pretrained.predict(np.expand_dims(face_img, axis=0))[0]
         face_vectors.append(vector)
-    return face_vectors
+    return face_vectors, face_thumbnails
     
 for i, m in enumerate(metadata):
     img = load_image(m.image_path())
@@ -119,8 +122,11 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import LinearSVC
 from sklearn.metrics import accuracy_score
 
+import time
+
 def train_images(metadata, embedded, train_with_all_samples = False):
     targets = np.array([m.name for m in metadata])
+    start = time.time()
 
     encoder = LabelEncoder()
     encoder.fit(targets)
@@ -144,7 +150,7 @@ def train_images(metadata, embedded, train_with_all_samples = False):
     y_test = y[test_idx]
 
     knn = KNeighborsClassifier(n_neighbors=1, metric='euclidean')
-    svc = LinearSVC()
+    svc = LinearSVC() #class_weight='balanced')
 
     knn.fit(X_train, y_train)
     svc.fit(X_train, y_train)
@@ -157,6 +163,8 @@ def train_images(metadata, embedded, train_with_all_samples = False):
     else:
         print('Trained classification models with all image samples')
         
+    end = time.time()
+    print("train_images took {} secs".format(end-start))
     return encoder, knn, svc, test_idx, targets
 
 encoder,knn,svc,test_idx,targets = train_images(metadata, embedded)
@@ -173,10 +181,10 @@ def display_image_prediction(model, metadata, embedded, test_idx, example_idx):
     example_identity = encoder.inverse_transform(example_prediction)[0]
 
     # Detect face and return bounding box
-    bb = alignment.getLargestFaceBoundingBox(example_image)
+    #bb = alignment.getLargestFaceBoundingBox(example_image)
 
     plt.imshow(example_image)
-    plt.gca().add_patch(patches.Rectangle((bb.left(), bb.top()), bb.width(), bb.height(), fill=False, color='red'))
+    #plt.gca().add_patch(patches.Rectangle((bb.left(), bb.top()), bb.width(), bb.height(), fill=False, color='red'))
     plt.title(f'Recognized as {example_identity}')
 
 display_image_prediction(knn, metadata, embedded, test_idx, example_idx)
@@ -192,7 +200,8 @@ def add_image_vectors(metadata, embedded):
     for i, m in enumerate(metadata):
         print("loading image from {}".format(m.image_path()))
         img = load_image(m.image_path())
-        vector = get_face_vector(img)
+        is_thumbnail = "customer_" in m.image_path()
+        vector = get_face_vector(img, is_thumbnail)
         vector = vector.reshape(1,128)
         embedded = np.append(embedded, vector,axis=0)
     return embedded
@@ -230,48 +239,103 @@ def display_cv2_image_faces(rgb_img, face_bbs, identities):
     
 def display_plt_image_faces(img, face_bbs, identities, subplot=111):
     plt.subplot(subplot)
+    plt.figure()
     plt.imshow(img)
     for bb in face_bbs:
         plt.gca().add_patch(patches.Rectangle((bb.left(), bb.top()), bb.width(), bb.height(), fill=False, color='red'))
     # TODO: Print identities in correct order
     plt.title(f'Recognized as {identities}')
 
-def identify_image_faces(svc, knn, example_image):
-    vectors = get_face_vectors(example_image)
+import imageio
+
+def save_unknown_face(face_vector, face_thumbnail, metadata, embedded):
+    print("Saving unknown face...")
+    dirs = os.listdir("custom")
+    customer_dirs = [dir for dir in dirs if "customer_" in dir]
+    if len(customer_dirs) > 0:
+        dir_indexes = [int(dir.split("_")[1]) for dir in customer_dirs]
+        curr_index = max(dir_indexes) + 1
+    else:
+        curr_index = 1
+                
+    # Save image to customer dir
+    # TODO: Remove requirement for double-creation of all data
+    customer_dir = "customer_{}".format(curr_index)
+    dir_path = os.path.join("custom", customer_dir)
+    os.mkdir(dir_path)
+    customer_file1 = "customer_{}.jpg".format(curr_index)
+    customer_file2 = "customer_{}a.jpg".format(curr_index)
+    file_path = os.path.join(dir_path, customer_file1)
+    file_path2 = os.path.join(dir_path, customer_file2)
+    imageio.imwrite(file_path, face_thumbnail)
+    imageio.imwrite(file_path2, face_thumbnail)
+    
+    metadata = np.append(metadata, IdentityMetadata("custom", customer_dir, customer_file1))
+    metadata = np.append(metadata, IdentityMetadata("custom", customer_dir, customer_file2))
+    vector = face_vector.reshape(1,128)
+    embedded = np.append(embedded, vector, axis=0)
+    embedded = np.append(embedded, vector, axis=0)
+
+    print("Saved unknown face")    
+    return metadata, embedded
+
+def distance(emb1, emb2):
+    return np.sum(np.square(emb1 - emb2))
+
+def get_distances(vector, embedded):
+    distances = []
+    for embed in embedded:
+        distances.append(distance(embed,vector))
+    return distances
+
+
+def identify_image_faces(example_image, svc_model, knn_model, label_encoder, metadata, embedded):
+    vectors, thumbnails = get_face_vectors(example_image)
     
     identities = []
-    for vector in vectors:
+    found_unknown = False
+    for i, vector in enumerate(vectors):
         vector = vector.reshape(1,128)
-        confidence_scores = svc.decision_function(vector)    
+        confidence_scores = svc_model.decision_function(vector)    
         if (confidence_scores.max() < 0):
+            found_unknown = True
             example_identity = "Unknown"
+            if RECOGNIZE_UNKNOWN_FACES:
+                metadata, embedded = save_unknown_face(vector, thumbnails[i], metadata, embedded)
         else:
-            example_prediction = knn.predict(vector)
-            example_identity = encoder.inverse_transform(example_prediction)[0]
+            example_prediction = knn_model.predict(vector)
+            example_identity = label_encoder.inverse_transform(example_prediction)[0]
         identities.append(example_identity)
+        
+    # Add to training model if any unknown faces were found
+    if RECOGNIZE_UNKNOWN_FACES:
+        if found_unknown:
+            # TODO: Remove global var references
+            global knn, svc, encoder, test_idx, targets        
+            encoder,knn,svc,test_idx,targets = train_images(metadata,embedded)
         
     # Detect faces and return bounding boxes
     face_bbs = alignment.getAllFaceBoundingBoxes(example_image)
     
-    return face_bbs, identities
+    return face_bbs, identities, metadata, embedded
     
-def display_unknown_image(svc, knn, image_path, subplot=111):
-    example_image = load_image(image_path)
+def display_unknown_image(image_path, svc, knn, encoder, metadata, embedded):
+    img = load_image(image_path)
  
-    face_bbs, identities = identify_image_faces(svc, knn, example_image)
-    #display_cv2_image_faces(example_image, face_bbs, identities)
-    display_plt_image_faces(example_image, face_bbs, identities, subplot)
+    face_bbs, identities, metadata, embedded = identify_image_faces(img, svc, knn, encoder, metadata, embedded)
+    display_cv2_image_faces(img, face_bbs, identities)
+    #display_plt_image_faces(img, face_bbs, identities, subplot)
+    return metadata, embedded
+    
 
-    return example_image
-
-mage1 = display_unknown_image(svc, knn, "unknown/unknown5.jpg", 121)
-
+metadata2, embedded2 = display_unknown_image("unknown/unknown6.jpg", svc, knn, encoder, metadata2, embedded2)
 
 # Dataset visualization
 
 from sklearn.manifold import TSNE
 
 X_embedded = TSNE(n_components=2).fit_transform(embedded2)
+plt.figure()
 
 for i, t in enumerate(set(targets)):
     idx = targets == t

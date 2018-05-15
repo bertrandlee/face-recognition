@@ -18,7 +18,7 @@ if TRAIN_WITH_ALL_SAMPLES == True:
 
 
 # Read source video file
-filename = 'videos/trump.mp4'
+filename = 'videos/retail_video1.mp4'
 
 vid = imageio.get_reader(filename,'ffmpeg')
 
@@ -34,12 +34,12 @@ if DISPLAY_SAMPLE_FRAMES == True:
     pylab.show()
 
 # Tag video frames with face labels 
-def label_image(svc, knn, example_image):
-    face_bbs, identities = identify_image_faces(svc, knn, example_image)
+def label_image(svc, knn, example_image, meta, embed):
+    face_bbs, identities, meta, embed = identify_image_faces(example_image, svc, knn, encoder, meta, embed)
     img = label_cv2_image_faces(example_image, face_bbs, identities)
     # Convert cv2 RBG back to RGB format
     img = img[:,:,::-1]        
-    return img
+    return img, meta, embed
 
 # Temp file for image labeling
 temp_file = "temp.jpg"
@@ -68,7 +68,7 @@ if CREATE_ANIMATED_GIF == True:
         # TODO: Figure out how to do in-memory transform instead of using temp file
         imageio.imwrite(temp_file, video_image)
         video_image2 = load_image(temp_file)
-        labeled_image = label_image(svc, knn, video_image2)
+        labeled_image, metadata2, embedded2 = label_image(svc, knn, video_image2, metadata2, embedded2)
         labeled_images.append(labeled_image)
     
     # Create animated GIF
