@@ -15,12 +15,10 @@ import dlib
 import copy
 from utils import display_cv2_image
 
+from face_reco_base import FaceRecognizer
+
 import rileymodels.mycodes.emotionpred as emotion
 
-# Load riley models
-print("Loading emotion model...")
-emotion_model = emotion.load_model_dir("rileymodels/trained_models")
-print("Loaded emotion model")
 
 # Flag to recognize faces 
 # This requires face_reco_base.py to be run in console first
@@ -32,8 +30,10 @@ OVERLAY_ALPHA = 0.5
 # Display image via OpenCV or matplotlib
 DISPLAY_CV_IMAGE=True
 
+# Test FaceImage class
+TEST_FACE_IMAGE=False
 
-class FaceCV(object):
+class FaceImage(object):
     """
     Singleton class for face recognition task
     """
@@ -43,7 +43,7 @@ class FaceCV(object):
 
     def __new__(cls, weight_file=None, depth=16, width=8, face_size=64):
         if not hasattr(cls, 'instance'):
-            cls.instance = super(FaceCV, cls).__new__(cls)
+            cls.instance = super(FaceImage, cls).__new__(cls)
         return cls.instance
 
     def __init__(self, depth=16, width=8, face_size=64):
@@ -56,6 +56,17 @@ class FaceCV(object):
                          cache_subdir=model_dir)
         self.model.load_weights(fpath)
         print("Loaded WideResNet model")
+        
+        # Load riley models
+        print("Loading emotion model...")
+        self.emotion_model = emotion.load_model_dir("rileymodels/trained_models")
+        print("Loaded emotion model")
+        
+        
+        if RECOGNIZE_FACES:
+            print("Loading face recognizer...")
+            self.face_recognizer = FaceRecognizer()
+            print("Loaded face recognizer")
 
     @classmethod
     def draw_label_top(cls, image, point, label, font=cv2.FONT_HERSHEY_SIMPLEX,
@@ -91,7 +102,10 @@ class FaceCV(object):
         yw2 = min(int(y2 + 0.4 * h), img_h - 1)
         return cv2.resize(img[yw1:yw2 + 1, xw1:xw2 + 1, :], (self.face_size, self.face_size))
 
-    def detect_face(self, img, emotion_model):
+    def detect_face(self, img):
+        # workaround for CV2 bug
+        img = copy.deepcopy(img)
+        
         # for face detection
         detector = dlib.get_frontal_face_detector()
             
@@ -101,8 +115,7 @@ class FaceCV(object):
 
         # detect faces using dlib detector
         if RECOGNIZE_FACES == True:
-            global metadata2, embedded2
-            face_bbs, identities, metadata2, embedded2 = identify_image_faces(img, svc, knn, encoder, metadata2, embedded2)
+            face_bbs, identities = self.face_recognizer.identify_image_faces(img)
         else:
             face_bbs = detector(input_img, 1)
         expanded_face_imgs = np.empty((len(face_bbs), self.face_size, self.face_size, 3))
@@ -114,7 +127,7 @@ class FaceCV(object):
             expanded_face_imgs[i, :, :, :] = self.get_expanded_face(img, bb)
             reg_face = self.get_regular_face(img, bb)
             reg_face = copy.deepcopy(reg_face)
-            emotion2_results.append(emotion.emotionof(emotion_model, reg_face)[0])
+            emotion2_results.append(emotion.emotionof(self.emotion_model, reg_face)[0])
 
         
         if len(expanded_face_imgs) > 0:
@@ -157,8 +170,7 @@ class FaceCV(object):
 
 def display_labeled_image(face, file_path):
     img = load_image(file_path)
-    img2 = copy.deepcopy(img)
-    image = face.detect_face(img2, emotion_model)
+    image = face.detect_face(img)
     if DISPLAY_CV_IMAGE == True:
         display_cv2_image(image, is_rgb=True)
     else:
@@ -172,5 +184,6 @@ def display_labeled_images(face, dir_path):
         file_path = os.path.join(dir_path, file)
         display_labeled_image(face, file_path)
 
-face = FaceCV()
-display_labeled_image(face, "unknown/unknown5.jpg")
+if TEST_FACE_IMAGE:
+    face = FaceImage()
+    display_labeled_image(face, "unknown/unknown5.jpg")
