@@ -30,7 +30,7 @@ RECOGNIZE_FACES = True
 OVERLAY_ALPHA = 0.5
 
 # Display image via OpenCV or matplotlib
-DISPLAY_CV_IMAGE=False
+DISPLAY_CV_IMAGE=True
 
 
 class FaceCV(object):
@@ -69,7 +69,7 @@ class FaceCV(object):
 
     @classmethod
     def draw_label_bottom(cls, image, point, label, font=cv2.FONT_HERSHEY_SIMPLEX,
-                   font_scale=1, thickness=2, row_index=0, alpha=OVERLAY_ALPHA):
+                   font_scale=0.5, thickness=1, row_index=0, alpha=OVERLAY_ALPHA):
         size = cv2.getTextSize(label, font, font_scale, thickness)[0]
         point = (point[0], point[1] + (row_index * size[1]))
         x, y = point
@@ -133,7 +133,7 @@ class FaceCV(object):
                 self.draw_label_bottom(img, (bb.left(), bb.bottom()), label1)
             
                 ## Display age, gender and emotion
-                if identities[i] == "Unknown":
+                if identities[i] == "Unknown" or "customer" in identities[i]:
                     label2 = "{}, {}, {}".format(int(predicted_ages[i]),
                                                  "F" if predicted_genders[i][0] > 0.5 else "M",
                                                  emotion2_results[i])
@@ -173,4 +173,4 @@ def display_labeled_images(face, dir_path):
         display_labeled_image(face, file_path)
 
 face = FaceCV()
-display_labeled_images(face, "unknown")
+display_labeled_image(face, "unknown/unknown5.jpg")

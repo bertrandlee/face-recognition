@@ -8,10 +8,11 @@ import matplotlib.pyplot as plt
 import imageio
 import pylab
 
-CREATE_ANIMATED_GIF = True
-CREATE_MP4_VIDEO  = False
+CREATE_ANIMATED_GIF = False
+CREATE_MP4_VIDEO  = True
 DISPLAY_SAMPLE_FRAMES = False
 TRAIN_WITH_ALL_SAMPLES = True
+USE_FULL_LABELS = True
 
 if TRAIN_WITH_ALL_SAMPLES == True:
     encoder,knn,svc,test_idx,targets = train_images(metadata2, embedded2, train_with_all_samples=True)
@@ -21,6 +22,7 @@ if TRAIN_WITH_ALL_SAMPLES == True:
 filename = 'videos/retail_video1.mov'
 
 vid = imageio.get_reader(filename,'ffmpeg')
+orig_fps = vid.get_meta_data()["fps"]
 
 if DISPLAY_SAMPLE_FRAMES == True:
     nums = [100,150]
@@ -44,12 +46,12 @@ def label_image(svc, knn, example_image, meta, embed):
 # Temp file for image labeling
 temp_file = "temp.jpg"
 
+face = FaceCV()
 
 if CREATE_ANIMATED_GIF == True:
     # Extract video frames for animated GIF
     frame_interval_secs = 1
-    fps = vid.get_meta_data()["fps"]
-    frame_interval_frames = int(frame_interval_secs * fps)
+    frame_interval_frames = int(frame_interval_secs * orig_fps)
     
     num_frames = len(vid)
     frames = [i for i in range(0, num_frames, frame_interval_frames)]
@@ -69,7 +71,12 @@ if CREATE_ANIMATED_GIF == True:
         imageio.imwrite(temp_file, video_image)
         #imageio.imwrite("test{}.jpg".format(i+1), video_image)
         video_image2 = load_image(temp_file)
-        labeled_image, metadata2, embedded2 = label_image(svc, knn, video_image2, metadata2, embedded2)
+        
+        if USE_FULL_LABELS:
+            img2 = copy.deepcopy(video_image2)
+            labeled_image = face.detect_face(img2, emotion_model)
+        else:
+            labeled_image, metadata2, embedded2 = label_image(svc, knn, video_image2, metadata2, embedded2)
         labeled_images.append(labeled_image)
     
     # Create animated GIF
@@ -95,7 +102,12 @@ if CREATE_MP4_VIDEO == True:
         # TODO: Figure out how to do in-memory transform instead of using temp file
         imageio.imwrite(temp_file, image)
         video_image2 = load_image(temp_file)
-        labeled_image, metadata2, embedded2 = label_image(svc, knn, video_image2, metadata2, embedded2)
+        
+        if USE_FULL_LABELS:
+            img2 = copy.deepcopy(video_image2)
+            labeled_image = face.detect_face(img2, emotion_model)
+        else:
+            labeled_image, metadata2, embedded2 = label_image(svc, knn, video_image2, metadata2, embedded2)
         
         #r = np.random.randint(-10,10,2)
         #n = cv2.rectangle(image,(600+r[0],400+r[1]),(700+r[0],300+r[1]),(0,255,0),3)
@@ -104,7 +116,7 @@ if CREATE_MP4_VIDEO == True:
         vidnew.append(labeled_image)
         
     # Create MP4 video
-    writer = imageio.get_writer('newvideoname.mp4', fps=24)
+    writer = imageio.get_writer('newvideoname.mp4', fps=orig_fps)
     
     for im in vidnew:
         writer.append_data(im)

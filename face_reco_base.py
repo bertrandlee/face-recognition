@@ -13,7 +13,7 @@ seed(1)
 from tensorflow import set_random_seed
 set_random_seed(2)
 
-RECOGNIZE_UNKNOWN_FACES = True
+RECOGNIZE_UNKNOWN_FACES = False
 MIN_DLIB_SCORE = 1.1
 MIN_SHARPNESS_LEVEL = 30
 
@@ -308,7 +308,8 @@ def identify_image_faces(example_image, svc_model, knn_model, label_encoder, met
         confidence_scores = svc_model.decision_function(vector)    
         if (confidence_scores.max() < 0):
             sharpness_level = get_sharpness_level(thumbnails[i])
-            example_identity = "Unknown ({:0.2f}, {}, {:0.2f})".format(dlib_scores[i], face_types[i], sharpness_level)
+            example_identity = "Unknown"
+            #example_identity = "Unknown ({:0.2f}, {}, {:0.2f})".format(dlib_scores[i], face_types[i], sharpness_level)
             print("Unknown face - dlib score={:0.2f}, face_type={}, sharpness_level={:0.2f}".format(dlib_scores[i], face_types[i], sharpness_level))
             if RECOGNIZE_UNKNOWN_FACES:
                 # Only save (and train) a good-quality and front-facing face
@@ -319,6 +320,8 @@ def identify_image_faces(example_image, svc_model, knn_model, label_encoder, met
         else:
             example_prediction = knn_model.predict(vector)
             example_identity = label_encoder.inverse_transform(example_prediction)[0]
+        # HACKHACK
+        #example_identity = "customer_6154"
         identities.append(example_identity)
         
     # Add to training model if any unknown faces were saved
