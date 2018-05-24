@@ -28,6 +28,9 @@ while True:
         
         result_img = face.detect_face(rgb_image)
         
+        if USE_SMALL_FRAME:
+            result_img = cv2.resize(result_img, (0, 0), fx=2, fy=2)
+        
         bgr_image = cv2.cvtColor(result_img, cv2.COLOR_RGB2BGR)
         cv2.imshow('window_frame', bgr_image)
         
