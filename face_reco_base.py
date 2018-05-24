@@ -45,6 +45,7 @@ RECOGNIZE_UNKNOWN_FACES = False
 MIN_DLIB_SCORE = 1.1
 MIN_SHARPNESS_LEVEL = 30
 TEST_FACE_RECOGNIZER = False
+MIN_CONFIDENCE_SCORE = 0.4
 
 
 class IdentityMetadata():
@@ -278,7 +279,7 @@ class FaceRecognizer():
         for i, vector in enumerate(vectors):
             vector = vector.reshape(1,128)
             confidence_scores = self.svc.decision_function(vector)    
-            if (confidence_scores.max() < 0):
+            if (confidence_scores.max() < MIN_CONFIDENCE_SCORE):
                 sharpness_level = self.get_sharpness_level(thumbnails[i])
                 example_identity = "Unknown"
                 #example_identity = "Unknown ({:0.2f}, {}, {:0.2f})".format(dlib_scores[i], face_types[i], sharpness_level)

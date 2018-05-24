@@ -5,6 +5,8 @@ from keras.models import load_model
 import numpy as np
 from face_reco_image import FaceImage
 
+USE_SMALL_FRAME = True
+
 
 face = FaceImage()
 
@@ -21,7 +23,8 @@ while True:
         gray_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2GRAY)
         rgb_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
         
-        small_frame = cv2.resize(rgb_image, (0, 0), fx=0.25, fy=0.25)
+        if USE_SMALL_FRAME:
+            rgb_image = cv2.resize(rgb_image, (0, 0), fx=0.25, fy=0.25)
         
         result_img = face.detect_face(rgb_image)
         
