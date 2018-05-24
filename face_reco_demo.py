@@ -6,9 +6,12 @@ import numpy as np
 from face_reco_image import FaceImage
 
 USE_SMALL_FRAME = True
-
+VISUALIZE_DATASET = False
 
 face = FaceImage()
+
+if VISUALIZE_DATASET:
+    face.face_recognizer.visualize_dataset()
 
 # starting video streaming
 process_this_frame = True

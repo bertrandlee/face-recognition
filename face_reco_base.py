@@ -45,7 +45,7 @@ RECOGNIZE_UNKNOWN_FACES = False
 MIN_DLIB_SCORE = 1.1
 MIN_SHARPNESS_LEVEL = 30
 TEST_FACE_RECOGNIZER = False
-MIN_CONFIDENCE_SCORE = 0.4
+MIN_CONFIDENCE_SCORE = 0.3
 
 
 class IdentityMetadata():
@@ -291,7 +291,7 @@ class FaceRecognizer():
                         print("Saving unknown face")
                         save_unknown_face(vector, thumbnails[i])
             else:
-                example_prediction = self.knn.predict(vector)
+                example_prediction = self.svc.predict(vector)
                 example_identity = self.encoder.inverse_transform(example_prediction)[0]
             identities.append(example_identity)
             
@@ -348,7 +348,6 @@ if TEST_FACE_RECOGNIZER:
     face_recognizer.display_image_prediction(example_idx)
     
     face_recognizer.visualize_dataset()
-
 
 
 

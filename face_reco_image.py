@@ -126,7 +126,7 @@ class FaceImage(object):
             x1, y1, x2, y2, w, h = bb.left(), bb.top(), bb.right() + 1, bb.bottom() + 1, bb.width(), bb.height()
             expanded_face_imgs[i, :, :, :] = self.get_expanded_face(img, bb)
             reg_face = self.get_regular_face(img, bb)
-            reg_face = copy.deepcopy(reg_face)
+            #reg_face = copy.deepcopy(reg_face)
             emotion2_results.append(emotion.emotionof(self.emotion_model, reg_face)[0])
 
         
