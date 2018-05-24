@@ -1,3 +1,9 @@
+rileylaptop = False
+if rileylaptop==True:
+    import sys
+    sys.path.append('C:\\Users\\Riley\\Documents\\CAPSTONE PROJECT\\face-recognition')
+    sys.path.append('C:\\Users\\Riley\\Anaconda3\\envs\\CAPSTONE\\Lib\\site-packages')
+
 from statistics import mode
 
 import cv2
