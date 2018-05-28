@@ -17,7 +17,7 @@ from utils import display_cv2_image
 
 from face_reco_base import FaceRecognizer
 
-import rileymodels.mycodes.emotionpred as emotion
+import emotion_model.src.emotionpred as emotion
 
 
 # Flag to recognize faces 
@@ -57,9 +57,9 @@ class FaceImage(object):
         self.model.load_weights(fpath)
         print("Loaded WideResNet model")
         
-        # Load riley models
+        # Load emotion models
         print("Loading emotion model...")
-        self.emotion_model = emotion.load_model_dir("rileymodels/trained_models")
+        self.emotion_model = emotion.load_model_dir("emotion_model/trained_models")
         print("Loaded emotion model")
         
         
